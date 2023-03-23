@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"github.com/containers/common/pkg/completion"
-	"github.com/containers/common/pkg/util"
 	"github.com/containers/podman/v4/cmd/podman/common"
 	"github.com/containers/podman/v4/cmd/podman/parse"
 	"github.com/containers/podman/v4/cmd/podman/registry"
 	"github.com/containers/podman/v4/libpod/define"
 	"github.com/containers/podman/v4/pkg/domain/entities"
+	"github.com/containers/podman/v4/pkg/util"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
@@ -62,8 +62,16 @@ var (
 	}
 )
 
+// saveOptionsWrapper wraps entities.ImageSaveOptions and prevents leaking
+// CLI-only fields into the API types.
+type saveOptionsWrapper struct {
+	entities.ImageSaveOptions
+	EncryptionKeys []string
+	EncryptLayers  []int
+}
+
 var (
-	saveOpts entities.ImageSaveOptions
+	saveOpts saveOptionsWrapper
 )
 
 func init() {
@@ -101,6 +109,15 @@ func saveFlags(cmd *cobra.Command) {
 		flags.StringVar(&saveOpts.SignaturePolicy, "signature-policy", "", "Path to a signature-policy file")
 		_ = flags.MarkHidden("signature-policy")
 	}
+
+	encryptionKeysFlagName := "encryption-key"
+	flags.StringSliceVar(&saveOpts.EncryptionKeys, encryptionKeysFlagName, nil, "Key with the encryption protocol to use to encrypt the image (e.g. jwe:/path/to/key.pem)")
+	_ = cmd.RegisterFlagCompletionFunc(encryptionKeysFlagName, completion.AutocompleteDefault)
+
+	encryptLayersFlagName := "encrypt-layer"
+	flags.IntSliceVar(&saveOpts.EncryptLayers, encryptLayersFlagName, nil, "Layers to encrypt, 0-indexed layer indices with support for negative indexing (e.g. 0 is the first layer, -1 is the last layer). If not defined, will encrypt all layers if encryption-key flag is specified")
+	_ = cmd.RegisterFlagCompletionFunc(encryptLayersFlagName, completion.AutocompleteDefault)
+
 }
 
 func save(cmd *cobra.Command, args []string) (finalErr error) {
@@ -141,7 +158,14 @@ func save(cmd *cobra.Command, args []string) (finalErr error) {
 		tags = args[1:]
 	}
 
-	err := registry.ImageEngine().Save(context.Background(), args[0], tags, saveOpts)
+	encConfig, encLayers, err := util.EncryptConfig(saveOpts.EncryptionKeys, saveOpts.EncryptLayers)
+	if err != nil {
+		return fmt.Errorf("unable to obtain encryption config: %w", err)
+	}
+	saveOpts.OciEncryptConfig = encConfig
+	saveOpts.OciEncryptLayers = encLayers
+
+	err = registry.ImageEngine().Save(context.Background(), args[0], tags, saveOpts.ImageSaveOptions)
 	if err == nil {
 		succeeded = true
 	}

@@ -396,6 +396,7 @@ func (ir *ImageEngine) Untag(ctx context.Context, nameOrID string, tags []string
 func (ir *ImageEngine) Load(ctx context.Context, options entities.ImageLoadOptions) (*entities.ImageLoadReport, error) {
 	loadOptions := &libimage.LoadOptions{}
 	loadOptions.SignaturePolicyPath = options.SignaturePolicy
+	loadOptions.OciDecryptConfig = options.OciDecryptConfig
 	if !options.Quiet {
 		loadOptions.Writer = os.Stderr
 	}
@@ -412,6 +413,8 @@ func (ir *ImageEngine) Save(ctx context.Context, nameOrID string, tags []string,
 	saveOptions.DirForceCompress = options.Compress
 	saveOptions.OciAcceptUncompressedLayers = options.OciAcceptUncompressedLayers
 	saveOptions.SignaturePolicyPath = options.SignaturePolicy
+	saveOptions.OciEncryptConfig = options.OciEncryptConfig
+	saveOptions.OciEncryptLayers = options.OciEncryptLayers
 
 	// Force signature removal to preserve backwards compat.
 	// See https://github.com/containers/podman/pull/11669#issuecomment-925250264
