@@ -18,6 +18,13 @@ import (
 	"golang.org/x/term"
 )
 
+// loadOptionsWrapper wraps entities.ImageLoadOptions and prevents leaking
+// CLI-only fields into the API types.
+type loadOptionsWrapper struct {
+	entities.ImageLoadOptions
+	DecryptionKeys []string
+}
+
 var (
 	loadDescription = "Loads an image from a locally stored archive (tar file) into container storage."
 	loadCommand     = &cobra.Command{
@@ -40,7 +47,7 @@ var (
 )
 
 var (
-	loadOpts entities.ImageLoadOptions
+	loadOpts loadOptionsWrapper
 )
 
 func init() {
@@ -66,6 +73,14 @@ func loadFlags(cmd *cobra.Command) {
 	if !registry.IsRemote() {
 		flags.StringVar(&loadOpts.SignaturePolicy, "signature-policy", "", "Pathname of signature policy file")
 		_ = flags.MarkHidden("signature-policy")
+	}
+
+	decryptionKeysFlagName := "decryption-key"
+	flags.StringSliceVar(&loadOpts.DecryptionKeys, decryptionKeysFlagName, nil, "Key needed to decrypt the image (e.g. /path/to/key.pem)")
+	_ = cmd.RegisterFlagCompletionFunc(decryptionKeysFlagName, completion.AutocompleteDefault)
+
+	if registry.IsRemote() {
+		_ = flags.MarkHidden(decryptionKeysFlagName)
 	}
 }
 
@@ -105,7 +120,14 @@ func load(cmd *cobra.Command, args []string) error {
 		}
 		loadOpts.Input = outFile.Name()
 	}
-	response, err := registry.ImageEngine().Load(context.Background(), loadOpts)
+
+	decConfig, err := util.DecryptConfig(loadOpts.DecryptionKeys)
+	if err != nil {
+		return fmt.Errorf("unable to obtain decryption config: %w", err)
+	}
+	loadOpts.OciDecryptConfig = decConfig
+
+	response, err := registry.ImageEngine().Load(context.Background(), loadOpts.ImageLoadOptions)
 	if err != nil {
 		return err
 	}

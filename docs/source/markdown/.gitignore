@@ -16,6 +16,7 @@ podman-init.1.md
 podman-inspect.1.md
 podman-kill.1.md
 podman-kube-play.1.md
+podman-load.1.md
 podman-login.1.md
 podman-logout.1.md
 podman-logs.1.md

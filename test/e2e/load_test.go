@@ -115,6 +115,48 @@ var _ = Describe("Podman load", func() {
 		}
 	})
 
+	It("podman load encrypted oci-archive", func() {
+		SkipIfRemote("Remote load does not support decryption")
+
+		outfile := filepath.Join(podmanTest.TempDir, "alpine.tar")
+
+		bitSize := 1024
+		keyFileName := filepath.Join(podmanTest.TempDir, "key")
+		publicKeyFileName, privateKeyFileName, err := WriteRSAKeyPair(keyFileName, bitSize)
+		Expect(err).ToNot(HaveOccurred())
+
+		wrongKeyFileName := filepath.Join(podmanTest.TempDir, "wrong_key")
+		_, wrongPrivateKeyFileName, err := WriteRSAKeyPair(wrongKeyFileName, bitSize)
+		Expect(err).ToNot(HaveOccurred())
+
+		save := podmanTest.Podman([]string{"save", "--encryption-key", "jwe:" + publicKeyFileName, "-o", outfile, "--format", "oci-archive", ALPINE})
+		save.WaitWithDefaultTimeout()
+		Expect(save).Should(Exit(0))
+
+		rmi := podmanTest.Podman([]string{"rmi", ALPINE})
+		rmi.WaitWithDefaultTimeout()
+		Expect(rmi).Should(Exit(0))
+
+		// Loading encrypted image without key should fail
+		result := podmanTest.Podman([]string{"load", "-i", outfile})
+		result.WaitWithDefaultTimeout()
+		Expect(result).Should(Exit(125))
+
+		// Loading encrypted image with wrong key should fail
+		result = podmanTest.Podman([]string{"load", "--decryption-key", wrongPrivateKeyFileName, "-i", outfile})
+		result.WaitWithDefaultTimeout()
+		Expect(result).Should(Exit(125))
+
+		// Loading encrypted image with correct key should pass
+		result = podmanTest.Podman([]string{"load", "--decryption-key", privateKeyFileName, "-i", outfile})
+		result.WaitWithDefaultTimeout()
+		Expect(result).Should(Exit(0))
+		result = podmanTest.Podman([]string{"images"})
+		result.WaitWithDefaultTimeout()
+		Expect(result).Should(Exit(0))
+		Expect(result.LineInOutputContainsTag("quay.io/libpod/alpine", "latest")).To(BeTrue())
+	})
+
 	It("podman load with quiet flag", func() {
 		outfile := filepath.Join(podmanTest.TempDir, "alpine.tar")
 

@@ -395,6 +395,7 @@ func (ir *ImageEngine) Untag(ctx context.Context, nameOrID string, tags []string
 
 func (ir *ImageEngine) Load(ctx context.Context, options entities.ImageLoadOptions) (*entities.ImageLoadReport, error) {
 	loadOptions := &libimage.LoadOptions{}
+	loadOptions.OciDecryptConfig = options.OciDecryptConfig
 	loadOptions.SignaturePolicyPath = options.SignaturePolicy
 	if !options.Quiet {
 		loadOptions.Writer = os.Stderr
@@ -411,6 +412,8 @@ func (ir *ImageEngine) Save(ctx context.Context, nameOrID string, tags []string,
 	saveOptions := &libimage.SaveOptions{}
 	saveOptions.DirForceCompress = options.Compress
 	saveOptions.OciAcceptUncompressedLayers = options.OciAcceptUncompressedLayers
+	saveOptions.OciEncryptConfig = options.OciEncryptConfig
+	saveOptions.OciEncryptLayers = options.OciEncryptLayers
 	saveOptions.SignaturePolicyPath = options.SignaturePolicy
 
 	// Force signature removal to preserve backwards compat.

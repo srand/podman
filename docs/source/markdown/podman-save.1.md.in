@@ -28,6 +28,10 @@ Note: `:` is a restricted character and cannot be part of the file name.
 
 Note: This flag can only be set with **--format=docker-dir**.
 
+@@option encrypt-layer
+
+@@option encryption-key
+
 #### **--format**=*format*
 
 An image format to produce, one of:

@@ -323,6 +323,9 @@ type ImageLoadOptions struct {
 	Input           string
 	Quiet           bool
 	SignaturePolicy string
+	// OciDecryptConfig contains the config that can be used to decrypt an image if it is
+	// encrypted if non-nil. If nil, it does not attempt to decrypt an image.
+	OciDecryptConfig *encconfig.DecryptConfig
 }
 
 type ImageLoadReport struct {
@@ -365,6 +368,15 @@ type ImageSaveOptions struct {
 	// Quiet - suppress output when copying images
 	Quiet           bool
 	SignaturePolicy string
+	// OciEncryptConfig when non-nil indicates that an image should be encrypted.
+	// The encryption options is derived from the construction of EncryptConfig object.
+	OciEncryptConfig *encconfig.EncryptConfig
+	// OciEncryptLayers represents the list of layers to encrypt.
+	// If nil, don't encrypt any layers.
+	// If non-nil and len==0, denotes encrypt all layers.
+	// integers in the slice represent 0-indexed layer indices, with support for negative
+	// indexing. i.e. 0 is the first layer, -1 is the last (top-most) layer.
+	OciEncryptLayers *[]int
 }
 
 // ImageScpOptions provide options for securely copying images to and from a remote host

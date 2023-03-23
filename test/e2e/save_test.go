@@ -256,6 +256,35 @@ default-docker:
 		}
 		multiImageSave(podmanTest, ids)
 	})
+
+	It("podman save encrypted oci-archive", func() {
+		SkipIfRemote("Remote save does not support encryption")
+
+		outfile := filepath.Join(podmanTest.TempDir, "alpine.tar")
+
+		bitSize := 1024
+		keyFileName := filepath.Join(podmanTest.TempDir, "key")
+		publicKeyFileName, privateKeyFileName, err := WriteRSAKeyPair(keyFileName, bitSize)
+		Expect(err).ToNot(HaveOccurred())
+
+		save := podmanTest.Podman([]string{"save", "--encryption-key", "jwe:" + publicKeyFileName, "-o", outfile, "--format", "oci-archive", ALPINE})
+		save.WaitWithDefaultTimeout()
+		Expect(save).Should(Exit(0))
+
+		rmi := podmanTest.Podman([]string{"rmi", "-fa"})
+		rmi.WaitWithDefaultTimeout()
+		Expect(rmi).Should(Exit(0))
+
+		// Ensure image was encrypted by attempting to load it without the key
+		result := podmanTest.Podman([]string{"load", "-i", outfile})
+		result.WaitWithDefaultTimeout()
+		Expect(result).Should(Exit(125))
+
+		// Loading encrypted image with correct key should pass
+		result = podmanTest.Podman([]string{"load", "--decryption-key", privateKeyFileName, "-i", outfile})
+		result.WaitWithDefaultTimeout()
+		Expect(result).Should(Exit(0))
+	})
 })
 
 // Create a multi-image archive, remove all images, load it and

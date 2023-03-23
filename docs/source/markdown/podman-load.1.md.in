@@ -26,6 +26,8 @@ Note: `:` is a restricted character and cannot be part of the file name.
 
 ## OPTIONS
 
+@@option decryption-key
+
 #### **--help**, **-h**
 
 Print usage statement
